@@ -54,12 +54,15 @@ public class Temporizador {
     public static void main(String[] args) {
         InetAddress ipServidor = null;
         PrintWriter pw;
+        String id = args[0];
+
         try {
             ipServidor = InetAddress.getByName("localhost");
             Socket cliente = new Socket(ipServidor, 20000);
             System.out.println(cliente);
             pw = new PrintWriter(cliente.getOutputStream(), true); //El segundo parametro activa el autoflush para escribir en el buffer
             pw.println("temporizador");
+            pw.println(id);
             HiloTemporizado sensor = new HiloTemporizado(cliente, pw);
             sensor.start();
         } catch (UnknownHostException e) {
