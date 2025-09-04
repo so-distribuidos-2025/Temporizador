@@ -1,4 +1,6 @@
 
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.Math;
 import java.net.Socket;
@@ -8,6 +10,8 @@ public class HiloTemporizado extends Thread {
     private Temporizador temporizador;
     private Socket cnxServidor;
     PrintWriter pw;
+    BufferedReader br;
+
 
     public HiloTemporizado(Socket s, PrintWriter pw) {
         this.on = true;
@@ -24,13 +28,27 @@ public class HiloTemporizado extends Thread {
     }
 
     public void run() {
-        Temporizador temporizador = new Temporizador(1, 30);
-        temporizador.iniciar();
-        int totalSegundos = temporizador.totalSegundos();
-        while (on){
-            totalSegundos = temporizador.totalSegundos();
-            pw.println(totalSegundos);
-            System.out.println(totalSegundos);
+        while (true) {
+            try {
+                int segundos = Integer.parseInt(br.readLine());
+                Temporizador temporizador = new Temporizador(segundos);
+                temporizador.iniciar();
+                int totalSegundos = temporizador.totalSegundos();
+                while (on) {
+                    totalSegundos = temporizador.totalSegundos();
+//                    pw.println(totalSegundos);
+                    System.out.println(totalSegundos);
+//                    br.reset();
+                    if (totalSegundos == 0) {
+                        on = false;
+                        pw.println(totalSegundos);
+                    }
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
         }
+
     }
 }

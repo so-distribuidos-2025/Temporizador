@@ -17,10 +17,16 @@ public class Temporizador {
     private int id;
     private ContadorTemporizado tarea;
 
+
     public Temporizador(int minutos, int segundos) {
         this.minutos = minutos;
         this.segundos = segundos;
         this.timer = new Timer();
+    }
+
+    public Temporizador(int segundos) {
+        this.segundos = segundos;
+        minutos = 0;
     }
 
     /**
