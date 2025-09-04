@@ -1,3 +1,8 @@
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -9,6 +14,8 @@ public class Temporizador {
     private int minutos;
     private int segundos;
     private Timer timer;
+    private int id;
+    private ContadorTemporizado tarea;
 
     public Temporizador(int minutos, int segundos) {
         this.minutos = minutos;
@@ -22,7 +29,39 @@ public class Temporizador {
      * total
      */
     public void iniciar() {
-        ContadorTemporizado tarea = new ContadorTemporizado(minutos, segundos, timer);
+        tarea = new ContadorTemporizado(minutos, segundos, timer);
         timer.scheduleAtFixedRate(tarea, 0, 1000); // Ejecuta cada 1 segundo
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public int totalSegundos(){
+            return tarea.segundos();
+    }
+
+    public static void main(String[] args) {
+        InetAddress ipServidor = null;
+        PrintWriter pw;
+        try {
+            ipServidor = InetAddress.getByName("localhost");
+            Socket cliente = new Socket(ipServidor, 20000);
+            System.out.println(cliente);
+            pw = new PrintWriter(cliente.getOutputStream(), true); //El segundo parametro activa el autoflush para escribir en el buffer
+            pw.println("temporizador");
+            HiloTemporizado sensor = new HiloTemporizado(cliente, pw);
+            sensor.start();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
     }
 }

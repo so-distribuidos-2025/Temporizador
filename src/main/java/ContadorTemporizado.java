@@ -37,4 +37,12 @@ public class ContadorTemporizado extends TimerTask {
             segundos--;
         }
     }
+
+    /**
+     * Calcula el total de segundos restantes.
+     * @return total de segundos
+     */
+    public int segundos() {
+        return minutos * 60 + segundos;
+    }
 }
