@@ -1,6 +1,7 @@
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.lang.Math;
 import java.net.Socket;
@@ -17,6 +18,12 @@ public class HiloTemporizado extends Thread {
         this.on = true;
         this.cnxServidor = s;
         this.pw = pw;
+        try {
+            this.br = new BufferedReader(new InputStreamReader(s.getInputStream()));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
     public void encender() {
@@ -28,6 +35,7 @@ public class HiloTemporizado extends Thread {
     }
 
     public void run() {
+
         while (true) {
             try {
                 int segundos = Integer.parseInt(br.readLine());
