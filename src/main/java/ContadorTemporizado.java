@@ -9,26 +9,29 @@ public class ContadorTemporizado extends TimerTask {
     private int minutos;
     private int segundos;
     private Timer timer;
+    private Temporizador parent;
 
-    public ContadorTemporizado(int minutos, int segundos, Timer timer) {
+    public ContadorTemporizado(int minutos, int segundos, Timer timer, Temporizador parent) {
         this.minutos = minutos;
         this.segundos = segundos;
         this.timer = timer;
+        this.parent = parent;
     }
 
     /**
-     * Decrementara los minutos y segundos por cada vez que se ejecute un pulso de {@code scheduleAtFixedRate}.
-     * Una vez llegue a 0, detiene el timer.
+     * Decrementara los minutos y segundos.
+     * Una vez llegue a 0, detiene el timer y notifica a su 'parent'.
      */
     @Override
     public void run() {
+        System.out.printf("Tiempo restante: %02d:%02d\n", minutos, segundos);
+
         if (minutos == 0 && segundos == 0) {
             System.out.println("¡Tiempo finalizado!");
             timer.cancel(); // Detiene el temporizador
+            parent.signalFinished();
             return;
         }
-
-        System.out.printf("%02d:%02d\n", minutos, segundos);
 
         if (segundos == 0) {
             minutos--;

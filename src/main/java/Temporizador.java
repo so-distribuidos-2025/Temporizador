@@ -4,73 +4,87 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Timer;
-import java.util.TimerTask;
 
 /**
- * Se encarga de marcar el tiempo y delay de {@code ContadorTemporizado}.
+ * Clase principal del cliente temporizador y objeto que gestiona el conteo.
  */
 public class Temporizador {
 
     private int minutos;
     private int segundos;
     private Timer timer;
-    private int id;
     private ContadorTemporizado tarea;
 
-
-    public Temporizador(int minutos, int segundos) {
-        this.minutos = minutos;
-        this.segundos = segundos;
-        this.timer = new Timer();
-    }
+    // volatile asegura que los cambios en esta variable son visibles para todos los hilos.
+    private volatile boolean isFinished = false;
 
     public Temporizador(int segundos) {
-        this.segundos = segundos;
-        minutos = 0;
+        this.minutos = segundos / 60;
+        this.segundos = segundos % 60;
+        this.timer = new Timer(true); // Usar un 'daemon thread' es una buena práctica
     }
 
     /**
-     * Crea una instancia de ContadorTemporizado, y mediante el método {@code scheduleAtFiexRate},
-     * ejecuta la tarea cada un segundo. El contador temporizado se encarga de ir decrementado el tiempo
-     * total
+     * Inicia el contador en un hilo de fondo.
      */
     public void iniciar() {
-        tarea = new ContadorTemporizado(minutos, segundos, timer);
-        timer.scheduleAtFixedRate(tarea, 0, 1000); // Ejecuta cada 1 segundo
+        tarea = new ContadorTemporizado(minutos, segundos, timer, this);
+        timer.scheduleAtFixedRate(tarea, 1000, 1000); // Empieza después de 1s, se repite cada 1s
     }
 
-    public int getId() {
-        return id;
+    /**
+     * Método llamado por ContadorTemporizado cuando el tiempo llega a cero.
+     * Despierta a cualquier hilo que esté esperando en el método await().
+     */
+    public synchronized void signalFinished() {
+        this.isFinished = true;
+        this.notifyAll(); // Despierta a los hilos en espera (el HiloTemporizado)
     }
 
-    public void setId(int id) {
-        this.id = id;
+    /**
+     * Pone el hilo actual en espera hasta que signalFinished() sea llamado.
+     */
+    public synchronized void await() throws InterruptedException {
+        while (!isFinished) {
+            this.wait(); // Libera el lock y se pone a dormir
+        }
     }
 
-    public int totalSegundos(){
+    /**
+     * BUG FIX: Añadimos una comprobación de nulo. Este método fallaría si se llama
+     * antes de que iniciar() haya sido invocado.
+     */
+    public int totalSegundos() {
+        if (tarea != null) {
             return tarea.segundos();
+        }
+        return this.minutos * 60 + this.segundos;
     }
 
     public static void main(String[] args) {
-        InetAddress ipServidor = null;
-        PrintWriter pw;
+        if (args.length == 0) {
+            System.out.println("Uso: java Temporizador <id>");
+            return;
+        }
         String id = args[0];
+        PrintWriter pw;
 
         try {
-            ipServidor = InetAddress.getByName("localhost");
+            InetAddress ipServidor = InetAddress.getByName("localhost");
             Socket cliente = new Socket(ipServidor, 20000);
-            System.out.println(cliente);
-            pw = new PrintWriter(cliente.getOutputStream(), true); //El segundo parametro activa el autoflush para escribir en el buffer
+            System.out.println("Conectado al servidor: " + cliente);
+
+            pw = new PrintWriter(cliente.getOutputStream(), true);
             pw.println("temporizador");
             pw.println(id);
+
             HiloTemporizado sensor = new HiloTemporizado(cliente, pw);
             sensor.start();
+
         } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
+            System.err.println("Host desconocido: " + e.getMessage());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Error de I/O al conectar: " + e.getMessage());
         }
-
-
     }
 }
