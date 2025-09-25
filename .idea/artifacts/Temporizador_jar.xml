@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="Temporizador:jar">
+    <output-path>$USER_HOME$/Descargas/Build</output-path>
+    <root id="archive" name="Temporizador.jar">
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="module-output" name="Temporizador" />
+    </root>
+  </artifact>
+</component>

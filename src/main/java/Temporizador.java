@@ -1,90 +1,116 @@
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
+import java.io.PrintWriter;
 
 /**
- * Clase principal del cliente temporizador y objeto que gestiona el conteo.
+ * Temporizador controlable que:
+ * - Envía señales al servidor (0 = listo/terminado, 1 = empieza a contar)
+ * - Puede ser detenido mediante una señal en la BlockingQueue
  */
 public class Temporizador {
 
     private int minutos;
     private int segundos;
-    private Timer timer;
-    private ContadorTemporizado tarea;
-
-    // volatile asegura que los cambios en esta variable son visibles para todos los hilos.
+    private final Timer timer;
     private volatile boolean isFinished = false;
+    private final PrintWriter pw;
 
-    public Temporizador(int segundos) {
-        this.minutos = segundos / 60;
-        this.segundos = segundos % 60;
-        this.timer = new Timer(true); // Usar un 'daemon thread' es una buena práctica
+    public Temporizador(int totalSegundos, PrintWriter pw) {
+        this.minutos = totalSegundos / 60;
+        this.segundos = totalSegundos % 60;
+        this.timer = new Timer(true); // daemon thread
+        this.pw = pw;
     }
 
     /**
-     * Inicia el contador en un hilo de fondo.
+     * Inicia el temporizador y escucha la cola de señales externas.
+     *
+     * @param signalQueue cola compartida (0 = detener)
      */
-    public void iniciar() {
-        tarea = new ContadorTemporizado(minutos, segundos, timer, this);
-        timer.scheduleAtFixedRate(tarea, 1000, 1000); // Empieza después de 1s, se repite cada 1s
+    public void iniciar(BlockingQueue<Integer> signalQueue) {
+        // Aviso inicial: listo para recibir tiempo
+        System.out.println("Preparado");
+        pw.println(0);
+
+        // Hilo listener para detener el temporizador
+        Thread stopListener = crearInnerStopListener(signalQueue);
+        stopListener.start();
+
+        // Aviso al servidor que empieza a contar
+        pw.println(1);
+
+        // Programar la tarea del temporizador
+        TimerTask tarea = crearInnerTimerTask();
+        timer.scheduleAtFixedRate(tarea, 1000, 1000);
     }
 
     /**
-     * Método llamado por ContadorTemporizado cuando el tiempo llega a cero.
-     * Despierta a cualquier hilo que esté esperando en el método await().
+     * Crea un TimerTask que decrementa los segundos y notifica al finalizar.
      */
-    public synchronized void signalFinished() {
-        this.isFinished = true;
-        this.notifyAll(); // Despierta a los hilos en espera (el HiloTemporizado)
+    private TimerTask crearInnerTimerTask() {
+        return new TimerTask() {
+            @Override
+            public void run() {
+                mostrarTiempoRestante();
+
+                if (minutos == 0 && segundos == 0) {
+                    System.out.println("¡Tiempo finalizado!");
+                    timer.cancel();
+                    signalFinished();
+                } else {
+                    decrementarSegundos();
+                }
+            }
+        };
     }
 
     /**
-     * Pone el hilo actual en espera hasta que signalFinished() sea llamado.
+     * Crea un hilo que escucha la cola para detener el temporizador.
      */
+    private Thread crearInnerStopListener(BlockingQueue<Integer> signalQueue) {
+        return new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    int signal = signalQueue.take(); // bloquea hasta recibir señal
+                    if (signal == 0) {
+                        parar();
+                        System.out.println("Temporizador detenido por señal externa.");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+    }
+
+    private void mostrarTiempoRestante() {
+        System.out.printf("Tiempo restante: %02d:%02d\n", minutos, segundos);
+    }
+
+    private void decrementarSegundos() {
+        if (segundos == 0) {
+            minutos--;
+            segundos = 59;
+        } else {
+            segundos--;
+        }
+    }
+
+    private synchronized void signalFinished() {
+        isFinished = true;
+        this.notifyAll();
+    }
+
     public synchronized void await() throws InterruptedException {
         while (!isFinished) {
-            this.wait(); // Libera el lock y se pone a dormir
+            this.wait();
         }
     }
 
-    /**
-     * BUG FIX: Añadimos una comprobación de nulo. Este método fallaría si se llama
-     * antes de que iniciar() haya sido invocado.
-     */
-    public int totalSegundos() {
-        if (tarea != null) {
-            return tarea.segundos();
-        }
-        return this.minutos * 60 + this.segundos;
-    }
-
-    public static void main(String[] args) {
-        if (args.length == 0) {
-            System.out.println("Uso: java Temporizador <id>");
-            return;
-        }
-        String id = args[0];
-        PrintWriter pw;
-
-        try {
-            InetAddress ipServidor = InetAddress.getByName("localhost");
-            Socket cliente = new Socket(ipServidor, 20000);
-            System.out.println("Conectado al servidor: " + cliente);
-
-            pw = new PrintWriter(cliente.getOutputStream(), true);
-            pw.println("temporizador");
-            pw.println(id);
-
-            HiloTemporizado sensor = new HiloTemporizado(cliente, pw);
-            sensor.start();
-
-        } catch (UnknownHostException e) {
-            System.err.println("Host desconocido: " + e.getMessage());
-        } catch (IOException e) {
-            System.err.println("Error de I/O al conectar: " + e.getMessage());
-        }
+    public synchronized void parar() {
+        timer.cancel();
+        signalFinished();
     }
 }
