@@ -1,3 +1,4 @@
+import java.io.BufferedReader;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
@@ -15,6 +16,7 @@ public class Temporizador {
     private final Timer timer;
     private volatile boolean isFinished = false;
     private final PrintWriter pw;
+    private HiloLectorParada parada;
 
     public Temporizador(int totalSegundos, PrintWriter pw) {
         this.minutos = totalSegundos / 60;
@@ -28,17 +30,15 @@ public class Temporizador {
      *
      * @param signalQueue cola compartida (0 = detener)
      */
-    public void iniciar(BlockingQueue<Integer> signalQueue) {
-        // Aviso inicial: listo para recibir tiempo
-        System.out.println("Preparado");
-        pw.println(0);
+    public void iniciar(BufferedReader br, BlockingQueue<Integer> signalQueue) {
 
         // Hilo listener para detener el temporizador
         Thread stopListener = crearInnerStopListener(signalQueue);
         stopListener.start();
 
-        // Aviso al servidor que empieza a contar
-        pw.println(1);
+        //Hilo de lectura del buffer para detener el temporizador
+        parada = new HiloLectorParada(br, signalQueue);
+        parada.start();
 
         // Programar la tarea del temporizador
         TimerTask tarea = crearInnerTimerTask();

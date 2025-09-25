@@ -40,6 +40,7 @@ public class HiloTemporizado extends Thread {
 
         try {
             while (true) {
+                pw.println(1);
                 ejecutarCicloTemporizador();
             }
         } catch (InterruptedException e) {
@@ -55,7 +56,7 @@ public class HiloTemporizado extends Thread {
     private void ejecutarCicloTemporizador() throws InterruptedException {
         int segundos = leerSegundos();
         if (segundos <= 0) {
-            System.err.println("Se recibió un valor no válido: " + segundos + ". Ignorando.");
+            //System.err.println("Se recibió un valor no válido: " + segundos + ". Ignorando.");
             return;
         }
         procesarTemporizador(segundos);
@@ -73,17 +74,20 @@ public class HiloTemporizado extends Thread {
     }
 
     private void procesarTemporizador(int segundos) throws InterruptedException {
+        pw.println(0);
+
         System.out.println("Iniciando temporizador de " + segundos + " segundos...");
 
         temporizador = new Temporizador(segundos, pw);
-        temporizador.iniciar(signalQueue);
+        temporizador.iniciar(br, signalQueue);
+
 
         // Espera a que el temporizador termine o sea detenido
         temporizador.await();
 
         // Aviso al servidor que el temporizador finalizó
         System.out.println("Temporizacion terminada");
-        pw.println(0);
+        Thread.sleep(2000);
     }
 
     private void cerrarConexion() {

@@ -10,7 +10,7 @@ public class Main {
     private PrintWriter pw;
     private String id;
     private Socket socketCliente;
-    private static final int TCP_PORT = 20200;
+    private static final int TCP_PORT = 20000;
     private static final String SERVER_NAME = "localhost";
 
     public Main() {
