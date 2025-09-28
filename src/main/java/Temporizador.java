@@ -1,120 +1,66 @@
-import java.io.BufferedReader;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.BlockingQueue;
-import java.io.PrintWriter;
 
 /**
- * Temporizador controlable que:
- * - Envía señales al servidor (0 = listo/terminado, 1 = empieza a contar)
- * - Puede ser detenido mediante una señal en la BlockingQueue
+ * Temporizador simplificado. Su única responsabilidad es contar hacia atrás.
+ * Puede ser detenido desde el exterior.
  */
 public class Temporizador {
 
-    private int minutos;
-    private int segundos;
     private final Timer timer;
-    private volatile boolean isFinished = false;
-    private final PrintWriter pw;
-    private HiloLectorParada parada;
+    private volatile boolean isRunning = false; // volatile para visibilidad entre hilos
 
-    public Temporizador(int totalSegundos, PrintWriter pw) {
-        this.minutos = totalSegundos / 60;
-        this.segundos = totalSegundos % 60;
-        this.timer = new Timer(true); // daemon thread
-        this.pw = pw;
+    public Temporizador(int totalSegundos) {
+        this.timer = new Timer(true); // true para que sea un hilo daemon
     }
 
     /**
-     * Inicia el temporizador y escucha la cola de señales externas.
-     *
-     * @param signalQueue cola compartida (0 = detener)
+     * Inicia el conteo del temporizador.
+     * Esta tarea se ejecuta en el hilo del Timer.
      */
-    public void iniciar(BufferedReader br, BlockingQueue<Integer> signalQueue) {
+    public void iniciar(int totalSegundos) {
+        if (isRunning) {
+            return;
+        }
+        isRunning = true;
 
-        // Hilo listener para detener el temporizador
-        Thread stopListener = crearInnerStopListener(signalQueue);
-        stopListener.start();
+        TimerTask tarea = new TimerTask() {
+            private int segundosRestantes = totalSegundos;
 
-        //Hilo de lectura del buffer para detener el temporizador
-        parada = new HiloLectorParada(br, signalQueue);
-        parada.start();
-
-        // Programar la tarea del temporizador
-        TimerTask tarea = crearInnerTimerTask();
-        timer.scheduleAtFixedRate(tarea, 1000, 1000);
-    }
-
-    /**
-     * Crea un TimerTask que decrementa los segundos y notifica al finalizar.
-     */
-    private TimerTask crearInnerTimerTask() {
-        return new TimerTask() {
             @Override
             public void run() {
-                mostrarTiempoRestante();
-
-                if (minutos == 0 && segundos == 0) {
-                    System.out.println("¡Tiempo finalizado!");
-                    timer.cancel();
-                    signalFinished();
+                if (segundosRestantes > 0) {
+                    int minutos = segundosRestantes / 60;
+                    int segundos = segundosRestantes % 60;
+                    System.out.printf("Tiempo restante: %02d:%02d\n", minutos, segundos);
+                    segundosRestantes--;
                 } else {
-                    decrementarSegundos();
+                    System.out.println("¡Tiempo finalizado!");
+                    parar(); // Detiene el timer y actualiza el estado
                 }
             }
         };
+
+        timer.scheduleAtFixedRate(tarea, 0, 1000); // Inicia inmediatamente, repite cada segundo
     }
 
     /**
-     * Crea un hilo que escucha la cola para detener el temporizador.
+     * Detiene el temporizador de forma forzada.
      */
-    private Thread crearInnerStopListener(BlockingQueue<Integer> signalQueue) {
-        return new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    int signal = signalQueue.take(); // bloquea hasta recibir señal
-                    if (signal == 0) {
-                        parar();
-                        System.out.println("Temporizador detenido por señal externa.");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        });
-    }
-
-    private void mostrarTiempoRestante() {
-        System.out.printf("Tiempo restante: %02d:%02d\n", minutos, segundos);
-    }
-
-    private void decrementarSegundos() {
-        if (segundos == 0) {
-            minutos--;
-            segundos = 59;
-        } else {
-            segundos--;
-        }
-    }
-
-    public void detenerParada(){
-        parada.interrupt();
-    }
-
-    private synchronized void signalFinished() {
-        isFinished = true;
-        this.notifyAll();
-    }
-
-    public synchronized void await() throws InterruptedException {
-        while (!isFinished) {
-            this.wait();
-        }
-    }
-
     public synchronized void parar() {
-        timer.cancel();
-        signalFinished();
+        if (isRunning) {
+            timer.cancel(); // Detiene todas las tareas programadas
+            timer.purge();  // Elimina las tareas canceladas
+            isRunning = false;
+            System.out.println("Temporizador detenido.");
+        }
+    }
+
+    /**
+     * Verifica si el temporizador está actualmente en funcionamiento.
+     * @return true si está contando, false en caso contrario.
+     */
+    public boolean estaCorriendo() {
+        return isRunning;
     }
 }
