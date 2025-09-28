@@ -87,7 +87,9 @@ public class HiloTemporizado extends Thread {
 
         // Aviso al servidor que el temporizador finalizó
         System.out.println("Temporizacion terminada");
-        Thread.sleep(2000);
+        temporizador.detenerParada();
+
+        Thread.sleep(1000);
     }
 
     private void cerrarConexion() {

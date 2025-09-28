@@ -98,6 +98,10 @@ public class Temporizador {
         }
     }
 
+    public void detenerParada(){
+        parada.interrupt();
+    }
+
     private synchronized void signalFinished() {
         isFinished = true;
         this.notifyAll();
