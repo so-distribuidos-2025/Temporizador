@@ -14,7 +14,7 @@ public class HiloTemporizado extends Thread {
     private final PrintWriter pw;
     private final BufferedReader br;
 
-    // Referencia al temporizador actualmente en ejecución
+    // Referencia al temporizador actualmente en ejecucion
     private Temporizador temporizadorActual = null;
 
     public HiloTemporizado(Socket s, PrintWriter pw) {
