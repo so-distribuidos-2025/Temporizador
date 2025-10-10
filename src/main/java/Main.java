@@ -28,7 +28,9 @@ public class Main {
     InetAddress obtenerIPServidor() {
         InetAddress ipServidor = null;
         try {
-            ipServidor = InetAddress.getByName(SERVER_NAME);
+            String serverName = System.getenv("CONTROLADOR_HOST");
+            if (serverName == null) serverName = "localhost";
+            ipServidor = InetAddress.getByName(serverName);
         } catch (UnknownHostException e) {
             System.err.println("No se pudo establecer la conexion en el puerto " + TCP_PORT);
             throw new RuntimeException("Error al crear la conexión", e);
@@ -41,7 +43,9 @@ public class Main {
         Socket nuevoSocketCliente = null;
         InetAddress ipServidor = obtenerIPServidor();
         try {
-            nuevoSocketCliente = new Socket(ipServidor, TCP_PORT);
+            String portEnv = System.getenv("CONTROLADOR_PORT");
+            int tcpPort = (portEnv != null) ? Integer.parseInt(portEnv) : 20000;
+            nuevoSocketCliente = new Socket(ipServidor, tcpPort);
             System.out.println("Conectado al servidor: " + nuevoSocketCliente);
         } catch (IOException e) {
             System.err.println("Error al conectar al servidor en " + SERVER_NAME + ":" + TCP_PORT);
